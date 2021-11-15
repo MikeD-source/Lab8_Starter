@@ -38,6 +38,26 @@ describe('Basic user flow for Website', () => {
     // TODO - Step 1
     // Right now this function is only checking the first <product-item> it found, make it so that
     // it checks every <product-item> it found
+    for(let i = 1; i < prodItems.length; ++i) {
+      data = await prodItems[i].getProperty('data');
+      // Convert that property to JSON
+      plainValue = await data.jsonValue();
+      // Make sure the title, price, and image are populated in the JSON
+      if (plainValue.title.length == 0) { 
+        allArePopulated = false;
+        break;
+       }
+      if (plainValue.price.length == 0) { 
+        allArePopulated = false;
+        break;
+       }
+      if (plainValue.image.length == 0) { 
+        allArePopulated = false;
+        break;
+      }
+      
+    }
+    expect(allArePopulated).toBe(true);
 
   }, 10000);
 
@@ -50,6 +70,18 @@ describe('Basic user flow for Website', () => {
     // Grab the shadowRoot of that element (it's a property), then query a button from that shadowRoot.
     // Once you have the button, you can click it and check the innerText property of the button.
     // Once you have the innerText property, use innerText['_remoteObject'].value to get the text value of it
+    let changed = false;
+    let button, innerText;
+    const prodItem = await page.$$('product-item');
+    shadow = await prodItem[0].getProperty('shadowRoot');
+    button = await shadow.$('button');
+    await button.click();
+    innerText = await button.getProperty('innerText');
+    if(innerText['_remoteObject'].value == 'Remove from Cart') {
+      changed = true;
+    }
+    expect(changed).toBe(true);
+
   }, 2500);
 
   // Check to make sure that after clicking "Add to Cart" on every <product-item> that the Cart
@@ -60,6 +92,21 @@ describe('Basic user flow for Website', () => {
     // Query select all of the <product-item> elements, then for every single product element
     // get the shadowRoot and query select the button inside, and click on it.
     // Check to see if the innerText of #cart-count is 20
+    const prodItems = await page.$$('product-item');
+    for(let i = 1; i < prodItems.length; ++i) {
+      let shadow = await prodItems[i].getProperty('shadowRoot');
+      let button = await shadow.$('button');
+      await button.click();
+    }
+    let count = await page.$('#cart-count');
+    count = await count.asElement().getProperty('innerText');
+    let matched;
+    if (count['_remoteObject'].value == 20) {
+      matched = true;
+    } else {
+      matched = false;
+    }
+    expect(matched).toBe(true);
   }, 10000);
 
   // Check to make sure that after you reload the page it remembers all of the items in your cart
@@ -69,13 +116,45 @@ describe('Basic user flow for Website', () => {
     // Reload the page, then select all of the <product-item> elements, and check every
     // element to make sure that all of their buttons say "Remove from Cart".
     // Also check to make sure that #cart-count is still 20
+    let removed = true;
+    await page.reload();
+    const prodItems = await page.$$('product-item');
+    for (let i = 0; i < prodItems.length; ++i) {
+      let shadow = await prodItems[i].getProperty('shadowRoot');
+      let button = await shadow.$('button');
+      let innerText = await button.getProperty('innerText');
+      if (innerText != 'Remove from Cart') { 
+        removed = false;
+        break;
+      }
+      let count = await page.$('#cart-count');
+      count = await count.asElement().getProperty('innerText');
+      let matched;
+      if (count['_remoteObject'].value == 20) {
+        matched = true;
+      } else {
+        matched = false;
+      }
+      expect(matched == true && removed == true).toBe(true);
+    }
   }, 10000);
 
   // Check to make sure that the cart in localStorage is what you expect
   it('Checking the localStorage to make sure cart is correct', async () => {
     // TODO - Step 5
-    // At this point he item 'cart' in localStorage should be 
-    // '[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]', check to make sure it is
+    // At this point the item 'cart' in localStorage should be 
+    // , check to make sure it is
+    let cartSelector = 'cart';
+    let matched = false;
+    const fullCart = await page.evaluate( (selector) => {
+      const storage = window.localStorage;
+      const cart = storage.getItem(selector);
+      return cart;
+    }, cartSelector);
+    if (fullCart == '[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]') {
+      matched = true;
+    }
+    expect(matched).toBe(true);
   });
 
   // Checking to make sure that if you remove all of the items from the cart that the cart
@@ -85,6 +164,21 @@ describe('Basic user flow for Website', () => {
     // TODO - Step 6
     // Go through and click "Remove from Cart" on every single <product-item>, just like above.
     // Once you have, check to make sure that #cart-count is now 0
+    const prodItems = await page.$$('product-item');
+    for (let i = 0; i < prodItems.length; ++i) {
+      let shadow = await prodItems[i].getProperty('shadowRoot');
+      let button = await shadow.$('button');
+      await button.click();
+    }
+    let count = await page.$('#cart-count');
+    count = await count.asElement().getProperty('innerText');
+    let matched;
+    if (count['_remoteObject'].value == 0) {
+      matched = true;
+    } else {
+      matched = false;
+    }
+    expect(matched).toBe(true);
   }, 10000);
 
   // Checking to make sure that it remembers us removing everything from the cart
@@ -95,6 +189,27 @@ describe('Basic user flow for Website', () => {
     // Reload the page once more, then go through each <product-item> to make sure that it has remembered nothing
     // is in the cart - do this by checking the text on the buttons so that they should say "Add to Cart".
     // Also check to make sure that #cart-count is still 0
+    let restored = true;
+    await page.reload();
+    const prodItems = await page.$$('product-item');
+    for (let i = 0; i < prodItems.length; ++i) {
+      let shadow = await prodItems[i].getProperty('shadowRoot');
+      let button = await shadow.$('button');
+      let innerText = await button.getProperty('innerText');
+      if (innerText != 'Add to Cart') { 
+        restored = false;
+        break;
+      }
+      let count = await page.$('#cart-count');
+      count = await count.asElement().getProperty('innerText');
+      let matched;
+      if (count['_remoteObject'].value == 0) {
+        matched = true;
+      } else {
+        matched = false;
+      }
+      expect(matched == true && restored == true).toBe(true);
+    }
   }, 10000);
 
   // Checking to make sure that localStorage for the cart is as we'd expect for the
@@ -103,5 +218,16 @@ describe('Basic user flow for Website', () => {
     console.log('Checking the localStorage...');
     // TODO - Step 8
     // At this point he item 'cart' in localStorage should be '[]', check to make sure it is
+    let cartSelector = 'cart';
+    let matched = false;
+    const fullCart = await page.evaluate( (selector) => {
+      const storage = window.localStorage;
+      const cart = storage.getItem(selector);
+      return cart;
+    }, cartSelector);
+    if (fullCart == '[]') {
+      matched = true;
+    }
+    expect(matched).toBe(true);
   });
 });
